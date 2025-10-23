@@ -1,0 +1,194 @@
+/**
+  *
+  * Copyright (c) 2021 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+#include    "mbed.h"
+#include    <cstdint>
+#include    <stdlib.h>
+#include    <string.h>
+//#include <sys/types.h>
+#include    "platform.h"
+
+SPI         Spi(PA_7, PA_6, PB_3);
+DigitalOut  CS0(PB_12);
+DigitalOut  CS1(PB_6); 
+DigitalIn   CS2(PC_7);      // Interrupted: Measurement completed
+
+void init_IO()
+{
+    Spi.format(8, 3);
+    Spi.frequency(2500000);
+    CS0 = 1;
+    CS1 = 1;
+}
+
+volatile uint16_t BckDev = 0xFFFF;
+
+uint16_t Ser_IT()
+{
+static uint16_t Intr;
+
+    if(CS2 == 0) return(0);
+    CS0 = 0;
+    Intr  = Spi.write(BckDev) << 8;
+    Intr |= Spi.write(0x00); 
+    CS0 = 1;
+    return(Intr);
+}
+
+void Sel_Dev(unsigned short Dev)
+{
+    char    rD;
+
+    if(Dev != BckDev) {
+        CS0 = 0;
+        rD = Spi.write(Dev);
+        rD = Spi.write(0x00);
+        CS0 = 1;
+        BckDev = Dev;
+    }
+}
+
+uint8_t VL53L8CX_RdByte(
+		VL53L8CX_Platform *p_platform,
+		uint16_t RegisterAdress,
+		uint8_t *p_value)
+{
+    unsigned char    rD[3];  
+	uint8_t status = 255;
+	/* Need to be implemented by customer. This function returns 0 if OK */
+    Sel_Dev(p_platform->address);
+    CS1 = 0;
+    rD[0] = Spi.write(RegisterAdress >> 8);
+    rD[1] = Spi.write(RegisterAdress & 0x00FF);
+    rD[2] = Spi.write(0x00);
+    CS1 = 1;
+    *p_value = rD[2];
+    status = 0;
+	return status;
+}
+
+uint8_t VL53L8CX_WrByte(
+		VL53L8CX_Platform *p_platform,
+		uint16_t RegisterAdress,
+		uint8_t value)
+{
+    unsigned char    rD[3];    
+	uint8_t         status = 255;
+	/* Need to be implemented by customer. This function returns 0 if OK */
+    Sel_Dev(p_platform->address);
+    CS1 = 0;
+    rD[0] = Spi.write((RegisterAdress >> 8) | 0x80);
+    rD[1] = Spi.write(RegisterAdress & 0x00FF);
+    rD[2] = Spi.write(value);
+    CS1 = 1;
+    status = 0;
+	return status;
+}
+
+uint8_t VL53L8CX_WrMulti(
+		VL53L8CX_Platform *p_platform,
+		uint16_t RegisterAdress,
+		uint8_t *p_values,
+		uint32_t size)
+{
+    int             n;
+    unsigned char   rD;
+	uint8_t status = 255;
+	
+	/* Need to be implemented by customer. This function returns 0 if OK */
+    Sel_Dev(p_platform->address);
+    CS1 = 0;
+    rD = Spi.write((RegisterAdress >> 8) | 0x80);
+    rD = Spi.write(RegisterAdress & 0x00FF);
+    for(n = 0; n < size; n++) {
+        rD = Spi.write(p_values[n]);
+    }
+    CS1 = 1;
+    status = 0;
+	return status;
+}
+
+uint8_t VL53L8CX_RdMulti(
+		VL53L8CX_Platform *p_platform,
+		uint16_t RegisterAdress,
+		uint8_t *p_values,
+		uint32_t size)
+{
+    int             n;
+    unsigned char   rD;
+	uint8_t status = 255;
+	
+	/* Need to be implemented by customer. This function returns 0 if OK */
+    Sel_Dev(p_platform->address);
+    CS1 = 0;
+    rD = Spi.write(RegisterAdress >> 8);
+    rD = Spi.write(RegisterAdress & 0x00FF);
+    for(n = 0; n < size; n++) {
+        rD = Spi.write(0x00);
+        *(p_values + n) = rD;
+    }
+    CS1 = 1;
+    status = 0;
+	return status;
+}
+
+uint8_t VL53L8CX_Reset_Sensor(
+		VL53L8CX_Platform *p_platform)
+{
+	uint8_t status = 0;
+	
+	/* (Optional) Need to be implemented by customer. This function returns 0 if OK */
+	
+	/* Set pin LPN to LOW */
+	/* Set pin AVDD to LOW */
+	/* Set pin VDDIO  to LOW */
+	/* Set pin CORE_1V8 to LOW */
+	VL53L8CX_WaitMs(p_platform, 100);
+
+	/* Set pin LPN to HIGH */
+	/* Set pin AVDD to HIGH */
+	/* Set pin VDDIO to HIGH */
+	/* Set pin CORE_1V8 to HIGH */
+	VL53L8CX_WaitMs(p_platform, 100);
+
+	return status;
+}
+
+void VL53L8CX_SwapBuffer(
+		uint8_t 		*buffer,
+		uint16_t 	 	 size)
+{
+	uint32_t i, tmp;
+	
+	/* Example of possible implementation using <string.h> */
+	for(i = 0; i < size; i = i + 4) 
+	{
+		tmp = (
+		  buffer[i]<<24)
+		|(buffer[i+1]<<16)
+		|(buffer[i+2]<<8)
+		|(buffer[i+3]);
+		
+		memcpy(&(buffer[i]), &tmp, 4);
+	}
+}	
+
+uint8_t VL53L8CX_WaitMs(
+		VL53L8CX_Platform *p_platform,
+		uint32_t TimeMs)
+{
+	uint8_t status = 255;
+
+	/* Need to be implemented by customer. This function returns 0 if OK */
+    ThisThread::sleep_for(TimeMs);
+    status = 0;
+	return status;
+}
