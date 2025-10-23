@@ -23,8 +23,8 @@ DigitalIn   CS2(PC_7);      // Interrupted: Measurement completed
 
 void init_IO()
 {
-    Spi.format(8, 3);
-    Spi.frequency(2500000);
+    Spi.format(8, 0);
+    Spi.frequency(100000);
     CS0 = 1;
     CS1 = 1;
 }
@@ -157,6 +157,31 @@ uint8_t VL53L8CX_RdMulti(
     CS1 = 1;
     status = 0;
 	return status;
+}
+
+uint8_t Platform_RdByteDirect(uint16_t RegisterAdress, uint8_t *p_value)
+{
+    unsigned char rD[3];
+    CS1 = 0;
+    rD[0] = Spi.write(RegisterAdress >> 8);
+    rD[1] = Spi.write(RegisterAdress & 0x00FF);
+    rD[2] = Spi.write(0x00);
+    CS1 = 1;
+    *p_value = rD[2];
+    printf("Platform_RdByteDirect: reg=0x%04X -> 0x%02X\n", (unsigned)RegisterAdress, (unsigned)rD[2]);
+    return 0;
+}
+
+uint8_t Platform_WrByteDirect(uint16_t RegisterAdress, uint8_t value)
+{
+    unsigned char rD;
+    CS1 = 0;
+    rD = Spi.write((RegisterAdress >> 8) | 0x80);
+    rD = Spi.write(RegisterAdress & 0x00FF);
+    rD = Spi.write(value);
+    CS1 = 1;
+    printf("Platform_WrByteDirect: reg=0x%04X <- 0x%02X\n", (unsigned)RegisterAdress, (unsigned)value);
+    return 0;
 }
 
 uint8_t VL53L8CX_Reset_Sensor(

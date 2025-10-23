@@ -167,5 +167,7 @@ void init_IO();
 void Sel_Dev(unsigned short Dev);
 uint16_t Ser_IT();
 void Platform_ForceSel(uint16_t val);
+uint8_t Platform_RdByteDirect(uint16_t RegisterAdress, uint8_t *p_value);
+uint8_t Platform_WrByteDirect(uint16_t RegisterAdress, uint8_t value);
 
 #endif	// _PLATFORM_H_

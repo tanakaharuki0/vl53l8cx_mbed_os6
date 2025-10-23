@@ -222,6 +222,14 @@ int main()
             VL53L8CX_RdByte(&MDev[0].platform, 1, &revision_id);
             printf("Try ForceSel(0x%04X): device_id=0x%02X rev=0x%02X\n", (unsigned)masks[i], (unsigned)device_id, (unsigned)revision_id);
         }
+        // Try direct CS1 access (no Sel_Dev) to see if sensor is accessible directly
+        {
+            uint8_t d0, d1;
+            Platform_WrByteDirect(0x7FFF, 0x00);
+            Platform_RdByteDirect(0x0000, &d0);
+            Platform_RdByteDirect(0x0001, &d1);
+            printf("Try Direct CS1: device_id=0x%02X rev=0x%02X\n", (unsigned)d0, (unsigned)d1);
+        }
         printf("Detect_SelectMapping end\n");
     }
 
