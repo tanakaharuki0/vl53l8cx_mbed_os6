@@ -37,26 +37,34 @@ static uint16_t Intr;
 
     if(CS2 == 0) return(0);
     CS0 = 0;
-    Intr  = Spi.write(BckDev) << 8;
-    Intr |= Spi.write(0x00); 
+    // Send high byte then low byte of BckDev, read two response bytes
+    uint8_t high = Spi.write((BckDev >> 8) & 0xFF);
+    uint8_t low = Spi.write(BckDev & 0xFF);
     CS0 = 1;
+    Intr = ((uint16_t)high << 8) | (uint16_t)low;
     // Debug print
-    printf("Ser_IT: SPI returned 0x%04X\n", (unsigned)Intr);
-    return(Intr);
+    printf("Ser_IT: SPI returned 0x%04X (high=0x%02X low=0x%02X)\n", (unsigned)Intr, (unsigned)high, (unsigned)low);
+    return Intr;
 }
 
 void Sel_Dev(unsigned short Dev)
 {
     char    rD;
 
-    if(Dev != BckDev) {
+    uint16_t send = (uint16_t)Dev;
+    // If Dev looks like a small index (0..15), convert to mask (0x8000 >> index)
+    if(Dev < 16) {
+        if(Dev < 16) send = (uint16_t)(0x8000u >> Dev);
+    }
+    if(send != BckDev) {
         // Debug print
-        printf("Sel_Dev: change from 0x%04X to 0x%04X\n", (unsigned)BckDev, (unsigned)Dev);
+        printf("Sel_Dev: change from 0x%04X to 0x%04X (index=%u)\n", (unsigned)BckDev, (unsigned)send, (unsigned)Dev);
         CS0 = 0;
-        rD = Spi.write(Dev);
-        rD = Spi.write(0x00);
+        // Send high byte then low byte
+        rD = Spi.write((send >> 8) & 0xFF);
+        rD = Spi.write(send & 0xFF);
         CS0 = 1;
-        BckDev = Dev;
+        BckDev = send;
     }
 }
 
