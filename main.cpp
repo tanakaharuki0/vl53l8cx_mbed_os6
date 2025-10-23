@@ -151,13 +151,15 @@ void Gget_Ranging()
     k = Ser_IT();       // In The platform.cpp
     if(k == 0) return;
 
-    // Map lower 3 bits from Ser_IT() to device indices 0..2
-    {
-        int mask = k;
-        for(char d = 0; d < SENSOR_COUNT; d++) {
-            if(mask & (1 << d)) DevAddr[d] = d;
-        }
-    }
+    // Map Ser_IT() bits to device indices. Original mapping used high bits
+    // (0x8000 = device0, 0x4000 = device1, 0x2000 = device2)
+    if((k & 0x8000) != 0) DevAddr[0] = 0;
+    if((k & 0x4000) != 0) DevAddr[1] = 1;
+    if((k & 0x2000) != 0) DevAddr[2] = 2;
+
+    // Debug: print Ser_IT raw and DevAddr mapping
+    printf("Gget_Ranging: Ser_IT raw=0x%04X\n", (unsigned)k);
+    for(int di = 0; di < SENSOR_COUNT; di++) printf("  DevAddr[%d]=%d\n", di, DevAddr[di]);
 
     for(k = 0; k < SENSOR_COUNT; k++) {
         if(DevAddr[k] != 0xFF) {

@@ -40,6 +40,8 @@ static uint16_t Intr;
     Intr  = Spi.write(BckDev) << 8;
     Intr |= Spi.write(0x00); 
     CS0 = 1;
+    // Debug print
+    printf("Ser_IT: SPI returned 0x%04X\n", (unsigned)Intr);
     return(Intr);
 }
 
@@ -48,6 +50,8 @@ void Sel_Dev(unsigned short Dev)
     char    rD;
 
     if(Dev != BckDev) {
+        // Debug print
+        printf("Sel_Dev: change from 0x%04X to 0x%04X\n", (unsigned)BckDev, (unsigned)Dev);
         CS0 = 0;
         rD = Spi.write(Dev);
         rD = Spi.write(0x00);
