@@ -203,32 +203,39 @@ int main()
     ThisThread::sleep_for(500ms);
     printf("TOF Sens Test Start\n");
 
-    // Try to detect selection mapping
+    // Try to detect selection mapping and SPI settings
     {
         uint8_t device_id, revision_id, alive;
         printf("Detect_SelectMapping start\n");
-        // Try index-based select (0,1,2)
-        for(int i = 0; i < SENSOR_COUNT; i++) {
-            Sel_Dev(i);
-            VL53L8CX_RdByte(&MDev[0].platform, 0, &device_id);
-            VL53L8CX_RdByte(&MDev[0].platform, 1, &revision_id);
-            printf("Try Sel_Dev(%d): device_id=0x%02X rev=0x%02X\n", i, (unsigned)device_id, (unsigned)revision_id);
-        }
-        // Try mask-based (0x8000..)
         uint16_t masks[3] = {0x8000, 0x4000, 0x2000};
-        for(int i = 0; i < 3; i++) {
-            Platform_ForceSel(masks[i]);
-            VL53L8CX_RdByte(&MDev[0].platform, 0, &device_id);
-            VL53L8CX_RdByte(&MDev[0].platform, 1, &revision_id);
-            printf("Try ForceSel(0x%04X): device_id=0x%02X rev=0x%02X\n", (unsigned)masks[i], (unsigned)device_id, (unsigned)revision_id);
-        }
-        // Try direct CS1 access (no Sel_Dev) to see if sensor is accessible directly
-        {
-            uint8_t d0, d1;
-            Platform_WrByteDirect(0x7FFF, 0x00);
-            Platform_RdByteDirect(0x0000, &d0);
-            Platform_RdByteDirect(0x0001, &d1);
-            printf("Try Direct CS1: device_id=0x%02X rev=0x%02X\n", (unsigned)d0, (unsigned)d1);
+        uint32_t freqs[] = {100000, 500000, 1000000};
+        for(uint8_t mode = 0; mode < 4; mode++) {
+            for(size_t fi = 0; fi < sizeof(freqs)/sizeof(freqs[0]); fi++) {
+                Platform_SetSpi(mode, freqs[fi]);
+                printf(" Probing SPI mode %u freq %u\n", (unsigned)mode, (unsigned)freqs[fi]);
+                // Try index-based select
+                for(int i = 0; i < SENSOR_COUNT; i++) {
+                    Sel_Dev(i);
+                    VL53L8CX_RdByte(&MDev[0].platform, 0, &device_id);
+                    VL53L8CX_RdByte(&MDev[0].platform, 1, &revision_id);
+                    printf("  Try Sel_Dev(%d): device_id=0x%02X rev=0x%02X\n", i, (unsigned)device_id, (unsigned)revision_id);
+                }
+                // Try mask-based
+                for(int i = 0; i < 3; i++) {
+                    Platform_ForceSel(masks[i]);
+                    VL53L8CX_RdByte(&MDev[0].platform, 0, &device_id);
+                    VL53L8CX_RdByte(&MDev[0].platform, 1, &revision_id);
+                    printf("  Try ForceSel(0x%04X): device_id=0x%02X rev=0x%02X\n", (unsigned)masks[i], (unsigned)device_id, (unsigned)revision_id);
+                }
+                // Try direct CS1 access
+                {
+                    uint8_t d0, d1;
+                    Platform_WrByteDirect(0x7FFF, 0x00);
+                    Platform_RdByteDirect(0x0000, &d0);
+                    Platform_RdByteDirect(0x0001, &d1);
+                    printf("  Try Direct CS1: device_id=0x%02X rev=0x%02X\n", (unsigned)d0, (unsigned)d1);
+                }
+            }
         }
         printf("Detect_SelectMapping end\n");
     }

@@ -71,6 +71,16 @@ void Platform_ForceSel(uint16_t val)
     printf("Platform_ForceSel: forced select 0x%04X\n", (unsigned)val);
 }
 
+void Platform_SetSpi(uint8_t mode, uint32_t freq)
+{
+    // map mode to polarity/phase settings: mode 0->(0,0), 1->(1,0), 2->(0,1), 3->(1,1)
+    uint8_t pol = (mode == 1 || mode == 3) ? 1 : 0;
+    uint8_t pha = (mode == 2 || mode == 3) ? 1 : 0;
+    Spi.format(8, (pol<<1)|pha);
+    Spi.frequency(freq);
+    printf("Platform_SetSpi: mode=%u freq=%u\n", (unsigned)mode, (unsigned)freq);
+}
+
 uint8_t VL53L8CX_RdByte(
 		VL53L8CX_Platform *p_platform,
 		uint16_t RegisterAdress,
