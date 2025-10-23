@@ -36,6 +36,18 @@ void init_IO()
 // For compatibility with existing API we keep these symbols.
 volatile uint16_t BckDev = 0xFFFF; // not used for I2C
 
+// Address mode detection for I2C: some code passes 8-bit address (0x52),
+// others expect 7-bit (0x29). We detect which one the I2C API expects.
+static int i2c_addr_mode = 0; // 0=unknown, 1=use as-is, 2=use >>1 (7-bit)
+
+static int resolved_addr(uint16_t raw)
+{
+    if(i2c_addr_mode == 1) return (int)raw;
+    if(i2c_addr_mode == 2) return (int)(raw >> 1);
+    // unknown -> return raw for a first try
+    return (int)raw;
+}
+
 uint16_t Ser_IT()
 {
     // Original SPI-based Ser_IT returned a 16-bit mask read via SPI.
@@ -61,14 +73,36 @@ uint8_t VL53L8CX_RdByte(
     tx[0] = (char)(RegisterAdress >> 8);
     tx[1] = (char)(RegisterAdress & 0xFF);
 
-    int addr = (int)p_platform->address; // expects 8-bit address (e.g. 0x52)
+    int raw = (int)p_platform->address;
+    int addr = resolved_addr(raw);
 
-    // Write register address with repeated start, then read one byte
+    // If address mode unknown, try as-is first, then try >>1 (7-bit)
+    if(i2c_addr_mode == 0) {
+        if (i2c.write(addr, tx, 2, true) == 0) {
+            char rx;
+            if (i2c.read(addr, &rx, 1) == 0) {
+                i2c_addr_mode = 1; // as-is works
+                *p_value = (uint8_t)rx;
+                return VL53L8CX_STATUS_OK;
+            }
+        }
+        // try 7-bit
+        addr = raw >> 1;
+        if (i2c.write(addr, tx, 2, true) == 0) {
+            char rx;
+            if (i2c.read(addr, &rx, 1) == 0) {
+                i2c_addr_mode = 2; // 7-bit
+                *p_value = (uint8_t)rx;
+                return VL53L8CX_STATUS_OK;
+            }
+        }
+        return VL53L8CX_STATUS_ERROR;
+    }
+
+    // Known mode: use resolved addr
     if (i2c.write(addr, tx, 2, true) != 0) return VL53L8CX_STATUS_ERROR;
-
     char rx;
     if (i2c.read(addr, &rx, 1) != 0) return VL53L8CX_STATUS_ERROR;
-
     *p_value = (uint8_t)rx;
     return VL53L8CX_STATUS_OK;
 }
@@ -83,9 +117,21 @@ uint8_t VL53L8CX_WrByte(
     tx[1] = (char)(RegisterAdress & 0xFF);
     tx[2] = (char)value;
 
-    int addr = (int)p_platform->address;
-    if (i2c.write(addr, tx, 3) != 0) return VL53L8CX_STATUS_ERROR;
-    return VL53L8CX_STATUS_OK;
+    int raw = (int)p_platform->address;
+    int addr = resolved_addr(raw);
+
+    if(i2c_addr_mode == 0) {
+        if (i2c.write(addr, tx, 3) == 0) {
+            i2c_addr_mode = 1; return VL53L8CX_STATUS_OK;
+        }
+        addr = raw >> 1;
+        if (i2c.write(addr, tx, 3) == 0) {
+            i2c_addr_mode = 2; return VL53L8CX_STATUS_OK;
+        }
+        return VL53L8CX_STATUS_ERROR;
+    }
+
+    return (i2c.write(addr, tx, 3) == 0) ? VL53L8CX_STATUS_OK : VL53L8CX_STATUS_ERROR;
 }
 
 uint8_t VL53L8CX_WrMulti(
@@ -102,8 +148,21 @@ uint8_t VL53L8CX_WrMulti(
     tx[1] = (char)(RegisterAdress & 0xFF);
     for(uint32_t i=0;i<size;i++) tx[2+i] = (char)p_values[i];
 
-    int addr = (int)p_platform->address;
-    int ret = i2c.write(addr, tx, total);
+    int raw = (int)p_platform->address;
+    int addr = resolved_addr(raw);
+    int ret;
+
+    if(i2c_addr_mode == 0) {
+        ret = i2c.write(addr, tx, total);
+        if(ret == 0) { i2c_addr_mode = 1; free(tx); return VL53L8CX_STATUS_OK; }
+        addr = raw >> 1;
+        ret = i2c.write(addr, tx, total);
+        if(ret == 0) { i2c_addr_mode = 2; free(tx); return VL53L8CX_STATUS_OK; }
+        free(tx);
+        return VL53L8CX_STATUS_ERROR;
+    }
+
+    ret = i2c.write(addr, tx, total);
     free(tx);
     return (ret == 0) ? VL53L8CX_STATUS_OK : VL53L8CX_STATUS_ERROR;
 }
@@ -117,7 +176,19 @@ uint8_t VL53L8CX_RdMulti(
     char tx[2];
     tx[0] = (char)(RegisterAdress >> 8);
     tx[1] = (char)(RegisterAdress & 0xFF);
-    int addr = (int)p_platform->address;
+    int raw = (int)p_platform->address;
+    int addr = resolved_addr(raw);
+
+    if(i2c_addr_mode == 0) {
+        if (i2c.write(addr, tx, 2, true) == 0) {
+            if (i2c.read(addr, (char*)p_values, size) == 0) { i2c_addr_mode = 1; return VL53L8CX_STATUS_OK; }
+        }
+        addr = raw >> 1;
+        if (i2c.write(addr, tx, 2, true) == 0) {
+            if (i2c.read(addr, (char*)p_values, size) == 0) { i2c_addr_mode = 2; return VL53L8CX_STATUS_OK; }
+        }
+        return VL53L8CX_STATUS_ERROR;
+    }
 
     if (i2c.write(addr, tx, 2, true) != 0) return VL53L8CX_STATUS_ERROR;
     if (i2c.read(addr, (char*)p_values, size) != 0) return VL53L8CX_STATUS_ERROR;
