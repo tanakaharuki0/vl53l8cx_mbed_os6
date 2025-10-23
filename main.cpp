@@ -189,50 +189,77 @@ void Gget_Ranging()
 }
 
 //----------------------------------------------------------------
-// Main
+// Main (single I2C sensor)
 //----------------------------------------------------------------
 int main()
 {
-    int     n, m, k, InitError;
-    
-    ThisThread::sleep_for(500ms);
-    init_IO();      // In The platform.cpp
-    ThisThread::sleep_for(500ms);
-    printf("TOF Sens Test Start\n");
+    uint8_t status, isAlive, isReady, i;
 
-    InitError = 1;
-    while(InitError) {
-        for(n = 0, InitError = 0; n < 11; n++) {
-            if(Init_Sensor(n, 1) == 0) InitError = 1;
+    ThisThread::sleep_for(500ms);
+    init_IO();      // I2C init in platform.cpp
+    ThisThread::sleep_for(500ms);
+    printf("VL53L8CX Single I2C Ranging Test Start\n");
+
+    // Use default I2C address defined in API (0x52)
+    Dev.platform.address = VL53L8CX_DEFAULT_I2C_ADDRESS;
+
+    // Check sensor presence
+    status = vl53l8cx_is_alive(&Dev, &isAlive);
+    if(status || !isAlive) {
+        printf("VL53L8CX not detected at address 0x%02X (status=%u isAlive=%u)\n",
+               Dev.platform.address, status, isAlive);
+        return 0;
+    }
+
+    // Initialize sensor (loads firmware)
+    status = vl53l8cx_init(&Dev);
+    if(status) {
+        printf("vl53l8cx_init failed, status %u\n", status);
+        return 0;
+    }
+    printf("VL53L8CX initialized (API: %s)\n", VL53L8CX_API_REVISION);
+
+    // Set ranging frequency (Hz)
+    status = vl53l8cx_set_ranging_frequency_hz(&Dev, 10);
+    if(status) printf("set_ranging_frequency_hz failed %u\n", status);
+
+    // Start ranging
+    status = vl53l8cx_start_ranging(&Dev);
+    if(status) {
+        printf("start_ranging failed %u\n", status);
+        return 0;
+    }
+
+    // Main loop: poll for data and print zones
+    while(true) {
+        status = vl53l8cx_check_data_ready(&Dev, &isReady);
+        if(status != VL53L8CX_STATUS_OK) {
+            printf("check_data_ready error %u\n", status);
+            VL53L8CX_WaitMs(&(Dev.platform), 10);
+            continue;
         }
-        ThisThread::sleep_for(500ms);
-    }
-    printf("Ranging Start\n");
-    for(n = 0; n < 11; n++) {
-        vl53l8cx_start_ranging(&MDev[n]);
-    }
 
-    while (true) {
-        Gget_Ranging();
-        k = get_Vcp();
-        if(k != 0) {
-            //-------------------------------------------------------------------
-            // Sampling rate Setup
-            // f frequency[1--60]
-            //-------------------------------------------------------------------
-            if(ucmd[0] == 'f') {
-                for( n = 1; ucmd[n] == ' ' || ucmd[n] == '\t'; n++);
-                sscanf(&ucmd[n], "%d", &m);
-                if(m >= 1 && m <= 60) {
-                    for(n = 0; n < 11; n++) {
-                        MDev[n].platform.address = n;
-                        vl53l8cx_set_ranging_frequency_hz(&MDev[n], m);
+        if(isReady) {
+            status = vl53l8cx_get_ranging_data(&Dev, &Results);
+            if(status == VL53L8CX_STATUS_OK) {
+                printf("Stream %3u:\n", Dev.streamcount);
+                for(i = 0; i < 16; i++) {
+                    uint8_t st = Results.target_status[VL53L8CX_NB_TARGET_PER_ZONE * i];
+                    int32_t d = Results.distance_mm[VL53L8CX_NB_TARGET_PER_ZONE * i];
+                    if(st == 5) {
+                        printf("Zone %2u: %4d mm\n", i, d);
+                    } else {
+                        printf("Zone %2u: status=%02u\n", i, st);
                     }
-                    printf("Sampling Rate Setup[f=%d]\n", m);
-                } else {
-                    printf("Error Sampling Rate Setup[f %d]\n", m);
                 }
+                printf("\n");
+            } else {
+                printf("get_ranging_data failed %u\n", status);
             }
         }
+
+        VL53L8CX_WaitMs(&(Dev.platform), 50);
     }
+
+    return 0;
 }
