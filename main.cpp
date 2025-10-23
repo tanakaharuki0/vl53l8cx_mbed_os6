@@ -104,18 +104,20 @@ VL53L8CX_Configuration 	MDev[SENSOR_COUNT];
 int Init_Sensor(uint16_t DevAddr, uint8_t Frequency)
 {
     uint8_t     status, isAlive;
-
     MDev[DevAddr].platform.address = DevAddr;
+    printf("Init_Sensor: DevAddr=%u\n", (unsigned)DevAddr);
     status = vl53l8cx_is_alive(&MDev[DevAddr], &isAlive);
+    printf("  is_alive returned status=%u isAlive=%u\n", (unsigned)status, (unsigned)isAlive);
     if(status) {
-		printf("VL53L8CX ULD Loading failed_alive[%d]\n", DevAddr);
-		return(0);
-	}
+        printf("VL53L8CX ULD Loading failed_alive[%d]\n", DevAddr);
+        return(0);
+    }
     status = vl53l8cx_init(&MDev[DevAddr]);
-	if(status) {
-		printf("VL53L8CX ULD Loading failed_init[%d]\n", DevAddr);
-		return(0);
-	}
+    printf("  init returned status=%u\n", (unsigned)status);
+    if(status) {
+        printf("VL53L8CX ULD Loading failed_init[%d]\n", DevAddr);
+        return(0);
+    }
     printf("VL53L8CX ULD ready ! (Version : %s)[%d]\n", VL53L8CX_API_REVISION, DevAddr);
 
     status = vl53l8cx_set_ranging_frequency_hz(&MDev[DevAddr], Frequency);
