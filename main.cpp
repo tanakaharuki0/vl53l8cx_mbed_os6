@@ -13,6 +13,8 @@
 static BufferedSerial serial_vcp(PA_2, PA_3, 115200);
 VL53L8CX_Configuration		Dev;
 
+#define SENSOR_COUNT 3
+
 VL53L8CX_ResultsData 	Results;		// Results data from VL53L8CX 
 
 //---------------------------------------------------------------------------
@@ -97,7 +99,7 @@ void Ranging_Basic(uint16_t DevAddr)
 //----------------------------------------------------------------
 // Multiple Sensor(by Kizaki)
 //----------------------------------------------------------------
-VL53L8CX_Configuration 	MDev[11];
+VL53L8CX_Configuration 	MDev[SENSOR_COUNT];
 
 int Init_Sensor(uint16_t DevAddr, uint8_t Frequency)
 {
@@ -133,9 +135,9 @@ void Start_Ranging(uint16_t DevAddr)
     status = vl53l8cx_start_ranging(&MDev[DevAddr]);
 }
 
-uint8_t DevAddr[11];
-uint8_t ReStart[11] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-uint8_t NumRdy[11] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+uint8_t DevAddr[SENSOR_COUNT];
+uint8_t ReStart[SENSOR_COUNT] = { 0 };
+uint8_t NumRdy[SENSOR_COUNT] = { 0 };
 
 void Gget_Ranging()
 {
@@ -143,22 +145,19 @@ void Gget_Ranging()
     char        i;
     int         k;
 
-    for(k = 0; k < 11; k++) DevAddr[k] = 0xFF;
+    for(k = 0; k < SENSOR_COUNT; k++) DevAddr[k] = 0xFF;
     k = Ser_IT();       // In The platform.cpp
     if(k == 0) return;
 
-    if((k & 0x0020) != 0) DevAddr[10] = 10;
-    if((k & 0x0040) != 0) DevAddr[9] = 9;
-    if((k & 0x0080) != 0) DevAddr[8] = 8;
-    if((k & 0x0100) != 0) DevAddr[7] = 7;
-    if((k & 0x0200) != 0) DevAddr[6] = 6;
-    if((k & 0x0400) != 0) DevAddr[5] = 5;
-    if((k & 0x0800) != 0) DevAddr[4] = 4;
-    if((k & 0x1000) != 0) DevAddr[3] = 3;
-    if((k & 0x2000) != 0) DevAddr[2] = 2;
-    if((k & 0x4000) != 0) DevAddr[1] = 1;
-    if((k & 0x8000) != 0) DevAddr[0] = 0;
-    for(k = 0; k < 11; k++) {
+    // Map lower 3 bits from Ser_IT() to device indices 0..2
+    {
+        int mask = k;
+        for(char d = 0; d < SENSOR_COUNT; d++) {
+            if(mask & (1 << d)) DevAddr[d] = d;
+        }
+    }
+
+    for(k = 0; k < SENSOR_COUNT; k++) {
         if(DevAddr[k] != 0xFF) {
             MDev[DevAddr[k]].platform.address = DevAddr[k];
             vl53l8cx_get_ranging_data(&MDev[DevAddr[k]], &Results);
@@ -179,7 +178,7 @@ void Gget_Ranging()
             NumRdy[k]++;
         }
     }
-    for(k = 0; k < 11; k++) {
+    for(k = 0; k < SENSOR_COUNT; k++) {
         if(NumRdy[k] > 250) {
             printf("Restart DevAddr[%d] NumRdy[%d]\n", k, NumRdy[k]);
             Start_Ranging(k);
@@ -202,13 +201,13 @@ int main()
 
     InitError = 1;
     while(InitError) {
-        for(n = 0, InitError = 0; n < 11; n++) {
+    for(n = 0, InitError = 0; n < SENSOR_COUNT; n++) {
             if(Init_Sensor(n, 1) == 0) InitError = 1;
         }
         ThisThread::sleep_for(500ms);
     }
     printf("Ranging Start\n");
-    for(n = 0; n < 11; n++) {
+    for(n = 0; n < SENSOR_COUNT; n++) {
         vl53l8cx_start_ranging(&MDev[n]);
     }
 
@@ -224,7 +223,7 @@ int main()
                 for( n = 1; ucmd[n] == ' ' || ucmd[n] == '\t'; n++);
                 sscanf(&ucmd[n], "%d", &m);
                 if(m >= 1 && m <= 60) {
-                    for(n = 0; n < 11; n++) {
+                    for(n = 0; n < SENSOR_COUNT; n++) {
                         MDev[n].platform.address = n;
                         vl53l8cx_set_ranging_frequency_hz(&MDev[n], m);
                     }
