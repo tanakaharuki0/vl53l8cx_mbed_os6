@@ -203,6 +203,28 @@ int main()
     ThisThread::sleep_for(500ms);
     printf("TOF Sens Test Start\n");
 
+    // Try to detect selection mapping
+    {
+        uint8_t device_id, revision_id, alive;
+        printf("Detect_SelectMapping start\n");
+        // Try index-based select (0,1,2)
+        for(int i = 0; i < SENSOR_COUNT; i++) {
+            Sel_Dev(i);
+            VL53L8CX_RdByte(&MDev[0].platform, 0, &device_id);
+            VL53L8CX_RdByte(&MDev[0].platform, 1, &revision_id);
+            printf("Try Sel_Dev(%d): device_id=0x%02X rev=0x%02X\n", i, (unsigned)device_id, (unsigned)revision_id);
+        }
+        // Try mask-based (0x8000..)
+        uint16_t masks[3] = {0x8000, 0x4000, 0x2000};
+        for(int i = 0; i < 3; i++) {
+            Platform_ForceSel(masks[i]);
+            VL53L8CX_RdByte(&MDev[0].platform, 0, &device_id);
+            VL53L8CX_RdByte(&MDev[0].platform, 1, &revision_id);
+            printf("Try ForceSel(0x%04X): device_id=0x%02X rev=0x%02X\n", (unsigned)masks[i], (unsigned)device_id, (unsigned)revision_id);
+        }
+        printf("Detect_SelectMapping end\n");
+    }
+
     InitError = 1;
     while(InitError) {
     for(n = 0, InitError = 0; n < SENSOR_COUNT; n++) {

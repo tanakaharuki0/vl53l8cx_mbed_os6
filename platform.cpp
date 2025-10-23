@@ -37,13 +37,11 @@ static uint16_t Intr;
 
     if(CS2 == 0) return(0);
     CS0 = 0;
-    // Send low byte of BckDev then 0x00, read two response bytes (original behavior)
-    uint8_t resp1 = Spi.write((uint8_t)(BckDev & 0xFF));
-    uint8_t resp2 = Spi.write(0x00);
+    Intr  = Spi.write(BckDev) << 8;
+    Intr |= Spi.write(0x00);
     CS0 = 1;
-    Intr = ((uint16_t)resp1 << 8) | (uint16_t)resp2;
     // Debug print
-    printf("Ser_IT: SPI returned 0x%04X (resp1=0x%02X resp2=0x%02X)\n", (unsigned)Intr, (unsigned)resp1, (unsigned)resp2);
+    printf("Ser_IT: SPI returned 0x%04X\n", (unsigned)Intr);
     return(Intr);
 }
 
@@ -51,21 +49,26 @@ void Sel_Dev(unsigned short Dev)
 {
     char    rD;
 
-    uint16_t send = (uint16_t)Dev;
-    // If Dev looks like a small index (0..15), convert to mask (0x8000 >> index)
-    if(Dev < 16) {
-        send = (uint16_t)(0x8000u >> Dev);
-    }
-    if(send != BckDev) {
+    if(Dev != BckDev) {
         // Debug print
-        printf("Sel_Dev: change from 0x%04X to 0x%04X (index=%u)\n", (unsigned)BckDev, (unsigned)send, (unsigned)Dev);
+        printf("Sel_Dev: change from 0x%04X to 0x%04X (index=%u)\n", (unsigned)BckDev, (unsigned)Dev, (unsigned)Dev);
         CS0 = 0;
-        // Send low byte then 0x00 (original behavior)
-        rD = Spi.write((uint8_t)(send & 0xFF));
+        rD = Spi.write((uint8_t)Dev);
         rD = Spi.write(0x00);
         CS0 = 1;
-        BckDev = send;
+        BckDev = Dev;
     }
+}
+
+void Platform_ForceSel(uint16_t val)
+{
+    char rD;
+    CS0 = 0;
+    rD = Spi.write((uint8_t)(val & 0xFF));
+    rD = Spi.write(0x00);
+    CS0 = 1;
+    BckDev = val;
+    printf("Platform_ForceSel: forced select 0x%04X\n", (unsigned)val);
 }
 
 uint8_t VL53L8CX_RdByte(
