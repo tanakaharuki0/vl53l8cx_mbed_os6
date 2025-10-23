@@ -223,8 +223,8 @@ uint8_t vl53l8cx_is_alive(
 	status |= VL53L8CX_RdByte(&(p_dev->platform), 0, &device_id);
 	status |= VL53L8CX_RdByte(&(p_dev->platform), 1, &revision_id);
 	status |= VL53L8CX_WrByte(&(p_dev->platform), 0x7fff, 0x02);
-    //printf("device_id=%02X   ", device_id);
-    //printf("revision_id=%02X\r\n", revision_id);
+	// Debug: print device id and revision id
+	printf("vl53l8cx_is_alive: device_id=0x%02X revision_id=0x%02X\n", (unsigned)device_id, (unsigned)revision_id);
 	if((device_id == (uint8_t)0xF0) && (revision_id == (uint8_t)0x0C)) {
 		*p_is_alive = 1;
 	} else {

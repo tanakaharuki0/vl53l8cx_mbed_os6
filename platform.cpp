@@ -75,6 +75,8 @@ uint8_t VL53L8CX_RdByte(
     rD[2] = Spi.write(0x00);
     CS1 = 1;
     *p_value = rD[2];
+    // Debug
+    printf("VL53L8CX_RdByte: addr=0x%04X reg=0x%04X -> 0x%02X\n", (unsigned)p_platform->address, (unsigned)RegisterAdress, (unsigned)rD[2]);
     status = 0;
 	return status;
 }
@@ -93,6 +95,8 @@ uint8_t VL53L8CX_WrByte(
     rD[1] = Spi.write(RegisterAdress & 0x00FF);
     rD[2] = Spi.write(value);
     CS1 = 1;
+    // Debug
+    printf("VL53L8CX_WrByte: addr=0x%04X reg=0x%04X <- 0x%02X\n", (unsigned)p_platform->address, (unsigned)RegisterAdress, (unsigned)value);
     status = 0;
 	return status;
 }
