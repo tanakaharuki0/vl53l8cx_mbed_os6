@@ -13,8 +13,10 @@
 #include    <cstdint>
 #include    <stdlib.h>
 #include    <string.h>
+#include    <chrono>
 //#include <sys/types.h>
 #include    "platform.h"
+#include    "vl53l8cx_api.h"
 
 // I2C implementation for VL53L8CX platform layer
 // Uses I2C peripheral for register access. Assumes p_platform->address
@@ -170,7 +172,7 @@ uint8_t VL53L8CX_WaitMs(
 	uint8_t status = 255;
 
 	/* Need to be implemented by customer. This function returns 0 if OK */
-    ThisThread::sleep_for(TimeMs);
+    ThisThread::sleep_for(std::chrono::milliseconds(TimeMs));
     status = 0;
 	return status;
 }
