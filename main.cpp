@@ -222,8 +222,8 @@ int main()
     }
     printf("VL53L8CX initialized (API: %s)\n", VL53L8CX_API_REVISION);
 
-    // Set ranging frequency (Hz)
-    status = vl53l8cx_set_ranging_frequency_hz(&Dev, 10);
+    // Set ranging frequency to 1Hz (1 measurement per second)
+    status = vl53l8cx_set_ranging_frequency_hz(&Dev, 1);
     if(status) printf("set_ranging_frequency_hz failed %u\n", status);
 
     // Start ranging
