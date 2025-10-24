@@ -166,5 +166,6 @@ uint8_t VL53L8CX_WaitMs(
 void init_IO();
 void Sel_Dev(unsigned short Dev);
 uint16_t Ser_IT();
+void print_i2c_scan();
 
 #endif	// _PLATFORM_H_

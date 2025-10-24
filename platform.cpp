@@ -48,6 +48,25 @@ static int resolved_addr(uint16_t raw)
     return (int)raw;
 }
 
+void print_i2c_scan()
+{
+    printf("I2C scan start...\n");
+    char buf[1] = {0};
+    for(int a = 1; a < 128; a++) {
+        int addr7 = a;
+        int addr8 = a << 1;
+        int ok7 = -1, ok8 = -1;
+        // try as 7-bit
+        if(i2c.write(addr7, buf, 0) == 0) ok7 = 1;
+        // try as 8-bit
+        if(i2c.write(addr8, buf, 0) == 0) ok8 = 1;
+        if(ok7 == 1 || ok8 == 1) {
+            printf(" ACK at 7bit:0x%02X 8bit:0x%02X\n", addr7, addr8);
+        }
+    }
+    printf("I2C scan end\n");
+}
+
 uint16_t Ser_IT()
 {
     // Original SPI-based Ser_IT returned a 16-bit mask read via SPI.
@@ -82,6 +101,7 @@ uint8_t VL53L8CX_RdByte(
             char rx;
             if (i2c.read(addr, &rx, 1) == 0) {
                 i2c_addr_mode = 1; // as-is works
+                printf("I2C: detected address mode = as-is (8-bit)\n");
                 *p_value = (uint8_t)rx;
                 return VL53L8CX_STATUS_OK;
             }
@@ -92,6 +112,7 @@ uint8_t VL53L8CX_RdByte(
             char rx;
             if (i2c.read(addr, &rx, 1) == 0) {
                 i2c_addr_mode = 2; // 7-bit
+                printf("I2C: detected address mode = 7-bit\n");
                 *p_value = (uint8_t)rx;
                 return VL53L8CX_STATUS_OK;
             }
@@ -122,11 +143,11 @@ uint8_t VL53L8CX_WrByte(
 
     if(i2c_addr_mode == 0) {
         if (i2c.write(addr, tx, 3) == 0) {
-            i2c_addr_mode = 1; return VL53L8CX_STATUS_OK;
+            i2c_addr_mode = 1; printf("I2C: detected address mode = as-is (8-bit)\n"); return VL53L8CX_STATUS_OK;
         }
         addr = raw >> 1;
         if (i2c.write(addr, tx, 3) == 0) {
-            i2c_addr_mode = 2; return VL53L8CX_STATUS_OK;
+            i2c_addr_mode = 2; printf("I2C: detected address mode = 7-bit\n"); return VL53L8CX_STATUS_OK;
         }
         return VL53L8CX_STATUS_ERROR;
     }
@@ -154,10 +175,10 @@ uint8_t VL53L8CX_WrMulti(
 
     if(i2c_addr_mode == 0) {
         ret = i2c.write(addr, tx, total);
-        if(ret == 0) { i2c_addr_mode = 1; free(tx); return VL53L8CX_STATUS_OK; }
+        if(ret == 0) { i2c_addr_mode = 1; printf("I2C: detected address mode = as-is (8-bit)\n"); free(tx); return VL53L8CX_STATUS_OK; }
         addr = raw >> 1;
         ret = i2c.write(addr, tx, total);
-        if(ret == 0) { i2c_addr_mode = 2; free(tx); return VL53L8CX_STATUS_OK; }
+        if(ret == 0) { i2c_addr_mode = 2; printf("I2C: detected address mode = 7-bit\n"); free(tx); return VL53L8CX_STATUS_OK; }
         free(tx);
         return VL53L8CX_STATUS_ERROR;
     }
@@ -181,11 +202,11 @@ uint8_t VL53L8CX_RdMulti(
 
     if(i2c_addr_mode == 0) {
         if (i2c.write(addr, tx, 2, true) == 0) {
-            if (i2c.read(addr, (char*)p_values, size) == 0) { i2c_addr_mode = 1; return VL53L8CX_STATUS_OK; }
+            if (i2c.read(addr, (char*)p_values, size) == 0) { i2c_addr_mode = 1; printf("I2C: detected address mode = as-is (8-bit)\n"); return VL53L8CX_STATUS_OK; }
         }
         addr = raw >> 1;
         if (i2c.write(addr, tx, 2, true) == 0) {
-            if (i2c.read(addr, (char*)p_values, size) == 0) { i2c_addr_mode = 2; return VL53L8CX_STATUS_OK; }
+            if (i2c.read(addr, (char*)p_values, size) == 0) { i2c_addr_mode = 2; printf("I2C: detected address mode = 7-bit\n"); return VL53L8CX_STATUS_OK; }
         }
         return VL53L8CX_STATUS_ERROR;
     }

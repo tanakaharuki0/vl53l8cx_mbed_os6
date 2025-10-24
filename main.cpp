@@ -200,6 +200,9 @@ int main()
     ThisThread::sleep_for(500ms);
     printf("VL53L8CX Single I2C Ranging Test Start\n");
 
+    // Debug: print I2C scan to find which addresses ACK on the bus
+    print_i2c_scan();
+
     // Use default I2C address defined in API (0x52)
     Dev.platform.address = VL53L8CX_DEFAULT_I2C_ADDRESS;
 
