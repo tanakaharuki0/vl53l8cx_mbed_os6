@@ -18,16 +18,17 @@
 #include <string.h>
 
 /*
- * If your VL53L8CX module has its LPn / XSHUT pin wired to an MCU pin and
- * you want the firmware to toggle it at startup, define PLATFORM_LPN_PIN to
- * that pin name (for example PB_12). If not defined the code will keep LPn
- * as "not connected" and the reset function will be a no-op.
- * 
- * Common pins for NUCLEO boards: PA_4, PB_0, PB_12, PC_6, etc.
- * Change PA_4 below to match your actual wiring if known.
+ * Pin configuration matching VL53L8CX_SimpleRanging vendor sample:
+ * - LPn (XSHUT): PB_0
+ * - PWR_EN: PA_7
+ * These pins must be toggled in reset sequence for sensor to respond on I2C.
  */
 #ifndef PLATFORM_LPN_PIN
-#define PLATFORM_LPN_PIN PA_4  // Try PA_4 (common XSHUT pin); change if needed
+#define PLATFORM_LPN_PIN PB_0  // Matches vendor sample custom_tof_conf.h
+#endif
+
+#ifndef PLATFORM_PWR_EN_PIN
+#define PLATFORM_PWR_EN_PIN PA_7  // Matches vendor sample custom_tof_conf.h
 #endif
 
 /**

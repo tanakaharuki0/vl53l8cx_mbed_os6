@@ -22,21 +22,35 @@
 // Uses I2C peripheral for register access. Assumes p_platform->address
 // contains the 8-bit I2C address (for example default 0x52 as in API header).
 
-// NOTE: Pins below (PB_7 SDA, PB_6 SCL) are typical for NUCLEO-F446RE I2C1.
-// Adjust if your wiring differs.
-I2C         i2c(PB_7, PB_6);
-DigitalIn   IRQ_PIN(PC_7); // Measurement complete / IRQ pin (was CS2)
+// Pin configuration matching VL53L8CX_SimpleRanging vendor sample (.ioc file):
+// - I2C1: PB_8 (SCL), PB_9 (SDA)
+// - INT: PA_4
+// - PWR_EN: PA_7
+// - LPn: PB_0
+I2C         i2c(PB_9, PB_8); // SDA=PB_9, SCL=PB_8 (I2C1 per vendor sample)
+DigitalIn   IRQ_PIN(PA_4);   // INT pin (matches vendor PA_4)
 DigitalOut  LPN_PIN_OUTPUT(PLATFORM_LPN_PIN);
+DigitalOut  PWR_EN_PIN(PLATFORM_PWR_EN_PIN);
 
 void init_IO()
 {
     // Initialize I2C bus (400 kHz)
     i2c.frequency(400000);
 
-    // If PLATFORM_LPN_PIN is defined, drive it high to release sensor from reset
+    // Replicate vendor sample reset_device() sequence:
+    // 1. Pulse PWR_EN to power on sensor
+    // 2. Pulse LPn to release reset
+    if (PLATFORM_PWR_EN_PIN != NC) {
+        PWR_EN_PIN = 0;
+        ThisThread::sleep_for(std::chrono::milliseconds(2));
+        PWR_EN_PIN = 1;
+        ThisThread::sleep_for(std::chrono::milliseconds(2));
+    }
     if (PLATFORM_LPN_PIN != NC) {
-        LPN_PIN_OUTPUT = 1; // Release reset (active low)
-        ThisThread::sleep_for(std::chrono::milliseconds(10));
+        LPN_PIN_OUTPUT = 0;
+        ThisThread::sleep_for(std::chrono::milliseconds(2));
+        LPN_PIN_OUTPUT = 1;
+        ThisThread::sleep_for(std::chrono::milliseconds(2));
     }
 }
 
@@ -57,26 +71,25 @@ static int resolved_addr(uint16_t raw)
 
 void print_i2c_scan()
 {
-    printf("I2C scan start...\n");
+    printf("I2C scan start (pins: SDA=PB_9, SCL=PB_8, INT=PA_4, PWR_EN=PA_7, LPn=PB_0)\n");
     char buf[1] = {0};
-    /* Print pin states to help debugging: IRQ line and whether an LPN pin is
-       defined (modules often have XSHUT/LPn that must be released for I2C to
-       respond). */
-    printf("IRQ_PIN state: %d\n", (int)IRQ_PIN.read());
-    if (PLATFORM_LPN_PIN != NC) {
-        printf("PLATFORM_LPN_PIN defined (PinName=%d)\n", (int)PLATFORM_LPN_PIN);
-    } else {
-        printf("PLATFORM_LPN_PIN == NC (not defined)\n");
-    }
+    printf("IRQ_PIN(PA_4) state: %d\n", (int)IRQ_PIN.read());
+    printf("PWR_EN_PIN(PA_7): %d, LPN_PIN(PB_0): %d\n", 
+           (int)PWR_EN_PIN.read(), (int)LPN_PIN_OUTPUT.read());
 
     /* mbed I2C API expects the 8-bit address (7-bit << 1). Probe using 8-bit
        addresses to avoid ambiguity. Addresses 0x02..0xFE (even) correspond
        to 7-bit 0x01..0x7F. */
+    int found = 0;
     for(int a7 = 1; a7 < 128; a7++) {
         int addr8 = a7 << 1; // 8-bit address for mbed I2C
         if(i2c.write(addr8, buf, 0) == 0) {
             printf(" ACK at 7bit:0x%02X 8bit:0x%02X\n", a7, addr8);
+            found++;
         }
+    }
+    if(found == 0) {
+        printf(" No devices found. Check wiring or power sequence.\n");
     }
     printf("I2C scan end\n");
 }
@@ -235,25 +248,22 @@ uint8_t VL53L8CX_Reset_Sensor(
 {
 	uint8_t status = 0;
 	
-	/* (Optional) Need to be implemented by customer. This function returns 0 if OK */
-	
-    /* If PLATFORM_LPN_PIN is defined (not NC), toggle it to reset the sensor.
-       Many modules expose XSHUT/LPn; pulsing it low then high performs a reset.
-    */
-    if (PLATFORM_LPN_PIN != NC) {
-        // Drive low
-        LPN_PIN_OUTPUT = 0;
-        VL53L8CX_WaitMs(p_platform, 10);
-        // Keep low for a short reset
-        VL53L8CX_WaitMs(p_platform, 100);
-        // Release (drive high)
-        LPN_PIN_OUTPUT = 1;
-        VL53L8CX_WaitMs(p_platform, 100);
-    } else {
-        /* No LPN pin defined: user must ensure module is powered and out of reset
-           before running. */
-        VL53L8CX_WaitMs(p_platform, 200);
-    }
+	/* Replicate vendor sample reset_device() sequence from custom_ranging_sensor.c:
+	   1. Pulse PWR_EN LOW->HIGH (power cycle)
+	   2. Pulse LPn LOW->HIGH (release reset)
+	*/
+	if (PLATFORM_PWR_EN_PIN != NC) {
+		PWR_EN_PIN = 0;
+		VL53L8CX_WaitMs(p_platform, 2);
+		PWR_EN_PIN = 1;
+		VL53L8CX_WaitMs(p_platform, 2);
+	}
+	if (PLATFORM_LPN_PIN != NC) {
+		LPN_PIN_OUTPUT = 0;
+		VL53L8CX_WaitMs(p_platform, 2);
+		LPN_PIN_OUTPUT = 1;
+		VL53L8CX_WaitMs(p_platform, 2);
+	}
 
 	return status;
 }
