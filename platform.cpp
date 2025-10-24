@@ -32,6 +32,12 @@ void init_IO()
 {
     // Initialize I2C bus (400 kHz)
     i2c.frequency(400000);
+
+    // If PLATFORM_LPN_PIN is defined, drive it high to release sensor from reset
+    if (PLATFORM_LPN_PIN != NC) {
+        LPN_PIN_OUTPUT = 1; // Release reset (active low)
+        ThisThread::sleep_for(std::chrono::milliseconds(10));
+    }
 }
 
 // For compatibility with existing API we keep these symbols.

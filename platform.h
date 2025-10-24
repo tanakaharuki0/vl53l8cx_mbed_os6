@@ -22,9 +22,12 @@
  * you want the firmware to toggle it at startup, define PLATFORM_LPN_PIN to
  * that pin name (for example PB_12). If not defined the code will keep LPn
  * as "not connected" and the reset function will be a no-op.
+ * 
+ * Common pins for NUCLEO boards: PA_4, PB_0, PB_12, PC_6, etc.
+ * Change PA_4 below to match your actual wiring if known.
  */
 #ifndef PLATFORM_LPN_PIN
-#define PLATFORM_LPN_PIN NC
+#define PLATFORM_LPN_PIN PA_4  // Try PA_4 (common XSHUT pin); change if needed
 #endif
 
 /**
