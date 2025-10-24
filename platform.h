@@ -17,6 +17,16 @@
 #include <stdint.h>
 #include <string.h>
 
+/*
+ * If your VL53L8CX module has its LPn / XSHUT pin wired to an MCU pin and
+ * you want the firmware to toggle it at startup, define PLATFORM_LPN_PIN to
+ * that pin name (for example PB_12). If not defined the code will keep LPn
+ * as "not connected" and the reset function will be a no-op.
+ */
+#ifndef PLATFORM_LPN_PIN
+#define PLATFORM_LPN_PIN NC
+#endif
+
 /**
  * @brief Structure VL53L8CX_Platform needs to be filled by the customer,
  * depending on his platform. At least, it contains the VL53L8CX I2C address.

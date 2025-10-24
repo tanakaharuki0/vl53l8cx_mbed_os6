@@ -26,6 +26,7 @@
 // Adjust if your wiring differs.
 I2C         i2c(PB_7, PB_6);
 DigitalIn   IRQ_PIN(PC_7); // Measurement complete / IRQ pin (was CS2)
+DigitalOut  LPN_PIN_OUTPUT(PLATFORM_LPN_PIN);
 
 void init_IO()
 {
@@ -52,16 +53,13 @@ void print_i2c_scan()
 {
     printf("I2C scan start...\n");
     char buf[1] = {0};
-    for(int a = 1; a < 128; a++) {
-        int addr7 = a;
-        int addr8 = a << 1;
-        int ok7 = -1, ok8 = -1;
-        // try as 7-bit
-        if(i2c.write(addr7, buf, 0) == 0) ok7 = 1;
-        // try as 8-bit
-        if(i2c.write(addr8, buf, 0) == 0) ok8 = 1;
-        if(ok7 == 1 || ok8 == 1) {
-            printf(" ACK at 7bit:0x%02X 8bit:0x%02X\n", addr7, addr8);
+    /* mbed I2C API expects the 8-bit address (7-bit << 1). Probe using 8-bit
+       addresses to avoid ambiguity.  Addresses 0x02..0xFE (even) correspond
+       to 7-bit 0x01..0x7F. */
+    for(int a7 = 1; a7 < 128; a7++) {
+        int addr8 = a7 << 1; // 8-bit address for mbed I2C
+        if(i2c.write(addr8, buf, 0) == 0) {
+            printf(" ACK at 7bit:0x%02X 8bit:0x%02X\n", a7, addr8);
         }
     }
     printf("I2C scan end\n");
@@ -223,17 +221,23 @@ uint8_t VL53L8CX_Reset_Sensor(
 	
 	/* (Optional) Need to be implemented by customer. This function returns 0 if OK */
 	
-	/* Set pin LPN to LOW */
-	/* Set pin AVDD to LOW */
-	/* Set pin VDDIO  to LOW */
-	/* Set pin CORE_1V8 to LOW */
-	VL53L8CX_WaitMs(p_platform, 100);
-
-	/* Set pin LPN to HIGH */
-	/* Set pin AVDD to HIGH */
-	/* Set pin VDDIO to HIGH */
-	/* Set pin CORE_1V8 to HIGH */
-	VL53L8CX_WaitMs(p_platform, 100);
+    /* If PLATFORM_LPN_PIN is defined (not NC), toggle it to reset the sensor.
+       Many modules expose XSHUT/LPn; pulsing it low then high performs a reset.
+    */
+    if (PLATFORM_LPN_PIN != NC) {
+        // Drive low
+        LPN_PIN_OUTPUT = 0;
+        VL53L8CX_WaitMs(p_platform, 10);
+        // Keep low for a short reset
+        VL53L8CX_WaitMs(p_platform, 100);
+        // Release (drive high)
+        LPN_PIN_OUTPUT = 1;
+        VL53L8CX_WaitMs(p_platform, 100);
+    } else {
+        /* No LPN pin defined: user must ensure module is powered and out of reset
+           before running. */
+        VL53L8CX_WaitMs(p_platform, 200);
+    }
 
 	return status;
 }
