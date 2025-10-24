@@ -249,7 +249,8 @@ int main()
                 for(i = 0; i < 16; i++) {
                     uint8_t st = Results.target_status[VL53L8CX_NB_TARGET_PER_ZONE * i];
                     int32_t d = Results.distance_mm[VL53L8CX_NB_TARGET_PER_ZONE * i];
-                    if(st == 5) {
+                    // Status 5 = valid with reflector, Status 9 = valid no reflector
+                    if(st == 5 || st == 9) {
                         printf("Zone %2u: %4d mm\n", i, d);
                     } else {
                         printf("Zone %2u: status=%02u\n", i, st);

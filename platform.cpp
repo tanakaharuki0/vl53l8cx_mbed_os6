@@ -35,7 +35,7 @@ DigitalOut  PWR_EN_PIN(PLATFORM_PWR_EN_PIN);
 void init_IO()
 {
     // Initialize I2C bus (400 kHz)
-    i2c.frequency(4);
+    i2c.frequency(1);
 
     // Replicate vendor sample reset_device() sequence:
     // 1. Pulse PWR_EN to power on sensor
