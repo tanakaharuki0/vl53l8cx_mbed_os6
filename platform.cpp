@@ -53,8 +53,18 @@ void print_i2c_scan()
 {
     printf("I2C scan start...\n");
     char buf[1] = {0};
+    /* Print pin states to help debugging: IRQ line and whether an LPN pin is
+       defined (modules often have XSHUT/LPn that must be released for I2C to
+       respond). */
+    printf("IRQ_PIN state: %d\n", (int)IRQ_PIN.read());
+    if (PLATFORM_LPN_PIN != NC) {
+        printf("PLATFORM_LPN_PIN defined (PinName=%d)\n", (int)PLATFORM_LPN_PIN);
+    } else {
+        printf("PLATFORM_LPN_PIN == NC (not defined)\n");
+    }
+
     /* mbed I2C API expects the 8-bit address (7-bit << 1). Probe using 8-bit
-       addresses to avoid ambiguity.  Addresses 0x02..0xFE (even) correspond
+       addresses to avoid ambiguity. Addresses 0x02..0xFE (even) correspond
        to 7-bit 0x01..0x7F. */
     for(int a7 = 1; a7 < 128; a7++) {
         int addr8 = a7 << 1; // 8-bit address for mbed I2C
